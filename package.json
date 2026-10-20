@@ -1,0 +1,28 @@
+{
+  "name": "aicte",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "check-types": "turbo run check-types"
+  },
+  "devDependencies": {
+    "prettier": "3.9.6",
+    "prisma": "^8.0.0-rc.23",
+    "turbo": "^2.11.9",
+    "typescript": "7.0.2"
+  },
+  "packageManager": "npm@10.9.4",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "dependencies": {
+    "@prisma/client": "^7.10.1"
+  }
+}

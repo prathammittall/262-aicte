@@ -1,0 +1,138 @@
+// use prisma-8
+
+model User {
+  id            String  @id
+  name          String
+  email         String  @unique
+  passwordHash  String
+  role          String
+  regionId      String?
+  institutionId String?
+}
+
+model Institution {
+  id      String @id
+  name    String
+  code    String @unique
+  region  String
+  city    String
+  status  String @default("Active")
+}
+
+model Application {
+  id                String  @id
+  institutionId     String
+  reference         String  @unique
+  applicationType   String
+  cycle             String
+  stage             String
+  status            String
+  submittedAt       String
+  dueAt             String
+  assignedTo        String?
+  workflowVersion   Int     @default(1)
+  summary           String  @default("")
+  updatedAt         String
+  workflowVersionId String?
+  returnToStage     String?
+}
+
+model StageEvent {
+  id            String  @id
+  applicationId String
+  fromStage     String?
+  toStage       String
+  action        String
+  reason        String
+  actorId       String
+  createdAt     String
+}
+
+model ComplianceObligation {
+  id            String  @id
+  institutionId String
+  applicationId String?
+  title         String
+  dueAt         String
+  status        String
+  assignedTo    String?
+  submittedAt   String?
+  evidenceName  String?
+  updatedAt     String
+}
+
+model InstitutionalDocument {
+  id            String  @id
+  institutionId String
+  category      String
+  fileName      String
+  expiresAt     String?
+  status        String
+  storageKey    String
+  uploadedAt    String
+  verifiedBy    String?
+  verifiedAt    String?
+}
+
+model EvcEvent {
+  id            String @id
+  applicationId String
+  scheduledAt   String
+  location      String
+  committee     String
+  status        String
+  createdBy     String
+  reason        String
+}
+
+model Notification {
+  id        String  @id
+  userId    String
+  title     String
+  body      String
+  category  String
+  relatedId String?
+  createdAt String
+  readAt    String?
+}
+
+model AuditEvent {
+  id            String  @id
+  actorId       String
+  action        String
+  entityType    String
+  entityId      String
+  reason        String
+  previousState String?
+  newState      String?
+  createdAt     String
+}
+
+model WorkflowTemplate {
+  id              String  @id
+  name            String  @unique
+  description     String
+  activeVersionId String?
+}
+
+model WorkflowVersion {
+  id          String  @id
+  templateId  String
+  version     Int
+  stagesJson  String
+  status      String
+  createdBy   String?
+  createdAt   String
+  publishedAt String?
+}
+
+model EscalationEvent {
+  id         String  @id
+  entityType String
+  entityId   String
+  reason     String
+  status     String
+  createdAt  String
+  resolvedAt String?
+  resolvedBy String?
+}
