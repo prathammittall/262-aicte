@@ -168,9 +168,10 @@ function visibleApplication(user: any, appRow: any, institutionsMap: Map<string,
     return Boolean(inst && inst.region === user.regionId);
   }
   if (['scrutiny_officer', 'evc_member'].includes(user.role)) {
-    return appRow.assignedTo === user.id;
+    const inst = institutionsMap.get(appRow.institutionId);
+    return appRow.assignedTo === user.id || Boolean(inst && inst.region === user.regionId);
   }
-  return ['super_admin', 'central_officer'].includes(user.role);
+  return ['super_admin', 'central_officer', 'competent_authority'].includes(user.role);
 }
 
 function serializeApplication(appRow: any, instMap: Map<string, any>, usersMap: Map<string, any>) {
@@ -192,6 +193,8 @@ function serializeApplication(appRow: any, instMap: Map<string, any>, usersMap: 
     updated_at: appRow.updatedAt,
     workflow_version_id: appRow.workflowVersionId,
     return_to_stage: appRow.returnToStage,
+    decision_notes: appRow.decisionNotes || null,
+    decision_at: appRow.decisionAt || null,
     institution_name: inst ? inst.name : 'Unknown institution',
     region: inst ? inst.region : null,
     assignee: assignee ? assignee.name : 'Unassigned',
@@ -201,20 +204,21 @@ function serializeApplication(appRow: any, instMap: Map<string, any>, usersMap: 
 // Database Seeder
 async function seed() {
   try {
-    const existingUsers = await db.orm.public.User.all();
-    if (existingUsers.length === 0) {
-      console.log('Seeding initial demonstration data...');
-      const demoUsers = [
-        { id: 'u-admin', name: 'Aarav Mehta', email: 'admin@demo.aicte.local', role: 'super_admin', regionId: null, institutionId: null },
-        { id: 'u-central', name: 'Kavya Rao', email: 'central@demo.aicte.local', role: 'central_officer', regionId: null, institutionId: null },
-        { id: 'u-north', name: 'Rohan Verma', email: 'north@demo.aicte.local', role: 'regional_officer', regionId: 'Northern Region', institutionId: null },
-        { id: 'u-scrutiny', name: 'Isha Nair', email: 'scrutiny@demo.aicte.local', role: 'scrutiny_officer', regionId: 'Northern Region', institutionId: null },
-        { id: 'u-scrutiny-west', name: 'Mira Desai', email: 'west.scrutiny@demo.aicte.local', role: 'scrutiny_officer', regionId: 'Western Region', institutionId: null },
-        { id: 'u-evc', name: 'Dev Patel', email: 'evc@demo.aicte.local', role: 'evc_member', regionId: 'Northern Region', institutionId: null },
-        { id: 'u-inst', name: 'Ananya Sharma', email: 'institution@demo.aicte.local', role: 'institution', regionId: null, institutionId: 'inst-001' },
-      ];
-      const passwordHash = hashPassword('DemoPass!2026');
-      for (const u of demoUsers) {
+    const demoUsers = [
+      { id: 'u-admin', name: 'Aarav Mehta', email: 'admin@demo.aicte.local', role: 'super_admin', regionId: null, institutionId: null },
+      { id: 'u-central', name: 'Kavya Rao', email: 'central@demo.aicte.local', role: 'central_officer', regionId: null, institutionId: null },
+      { id: 'u-authority', name: 'Dr. Vikram Malhotra', email: 'authority@demo.aicte.local', role: 'competent_authority', regionId: null, institutionId: null },
+      { id: 'u-bureau', name: 'Sanjay Deshmukh', email: 'bureau@demo.aicte.local', role: 'central_officer', regionId: null, institutionId: null },
+      { id: 'u-north', name: 'Rohan Verma', email: 'north@demo.aicte.local', role: 'regional_officer', regionId: 'Northern Region', institutionId: null },
+      { id: 'u-scrutiny', name: 'Isha Nair', email: 'scrutiny@demo.aicte.local', role: 'scrutiny_officer', regionId: 'Northern Region', institutionId: null },
+      { id: 'u-scrutiny-west', name: 'Mira Desai', email: 'west.scrutiny@demo.aicte.local', role: 'scrutiny_officer', regionId: 'Western Region', institutionId: null },
+      { id: 'u-evc', name: 'Dev Patel', email: 'evc@demo.aicte.local', role: 'evc_member', regionId: 'Northern Region', institutionId: null },
+      { id: 'u-inst', name: 'Ananya Sharma', email: 'institution@demo.aicte.local', role: 'institution', regionId: null, institutionId: 'inst-001' },
+    ];
+    const passwordHash = hashPassword('DemoPass!2026');
+    for (const u of demoUsers) {
+      const existing = await db.orm.public.User.where({ email: u.email }).first();
+      if (!existing) {
         await db.orm.public.User.create({
           id: u.id,
           name: u.name,
@@ -225,12 +229,15 @@ async function seed() {
           institutionId: u.institutionId,
         });
       }
-
+    }
+    const existingInsts = await db.orm.public.Institution.all();
+    if (existingInsts.length === 0) {
       const insts = [
         { id: 'inst-001', name: 'North Valley Institute of Technology', code: 'NVI-2048', region: 'Northern Region', city: 'Dehradun', status: 'Active' },
         { id: 'inst-002', name: 'Saraswati College of Engineering', code: 'SCE-1192', region: 'Northern Region', city: 'Jaipur', status: 'Active' },
         { id: 'inst-003', name: 'Coastal School of Applied Sciences', code: 'CSA-3864', region: 'Western Region', city: 'Pune', status: 'Active' },
       ];
+
       for (const inst of insts) {
         await db.orm.public.Institution.create(inst);
       }
@@ -353,6 +360,46 @@ app.post('/api/auth/login', async (req, res) => {
 app.post('/api/auth/logout', (_req, res) => {
   res.clearCookie('aicte_session', { path: '/' });
   res.json({ status: 'signed out' });
+});
+
+app.post('/api/auth/demo-switch', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      res.status(400).json({ detail: 'Email is required' });
+      return;
+    }
+    const cleanEmail = String(email).toLowerCase().trim();
+    const user = await db.orm.public.User.where({ email: cleanEmail }).first();
+    if (!user) {
+      res.status(404).json({ detail: `Demo account '${cleanEmail}' not found` });
+      return;
+    }
+
+    const token = createToken(user.id);
+    const isSecure = process.env.SECURE_COOKIE?.toLowerCase() === 'true';
+
+    res.cookie('aicte_session', token, {
+      httpOnly: true,
+      secure: isSecure,
+      sameSite: 'lax',
+      maxAge: 8 * 60 * 60 * 1000,
+      path: '/',
+    });
+
+    res.json({
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        region_id: user.regionId,
+        institution_id: user.institutionId,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ detail: err.message });
+  }
 });
 
 app.get('/api/auth/me', currentUserMiddleware, (req, res) => {
@@ -567,13 +614,13 @@ app.post('/api/applications', currentUserMiddleware, requireRoles('super_admin',
 
 // Application Transition
 const ACTION_ROLES: Record<string, string[]> = {
-  return: ['scrutiny_officer', 'regional_officer'],
+  return: ['scrutiny_officer', 'regional_officer', 'central_officer', 'super_admin'],
   resubmit: ['institution'],
 };
 const COMPLETE_ROLES_BY_STAGE: Record<string, string[]> = {
-  Scrutiny: ['scrutiny_officer', 'regional_officer'],
-  EVC: ['evc_member', 'central_officer', 'regional_officer'],
-  'Committee review': ['central_officer', 'super_admin'],
+  Scrutiny: ['scrutiny_officer', 'regional_officer', 'central_officer', 'super_admin'],
+  EVC: ['evc_member', 'central_officer', 'regional_officer', 'super_admin'],
+  'Committee review': ['central_officer', 'competent_authority', 'super_admin'],
 };
 
 app.post('/api/applications/:applicationId/transition', currentUserMiddleware, async (req, res) => {
@@ -728,6 +775,178 @@ app.get('/api/applications/:applicationId/timeline', currentUserMiddleware, asyn
     res.status(500).json({ detail: err.message });
   }
 });
+
+// Scrutiny Observations
+app.get('/api/applications/:applicationId/scrutiny', currentUserMiddleware, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    const applicationId = String(req.params.applicationId);
+    const row = await db.orm.public.Application.where({ id: applicationId }).first();
+    const inst = row ? await db.orm.public.Institution.where({ id: row.institutionId }).first() : null;
+    const instMap = new Map(inst ? [[inst.id, inst]] : []);
+
+    if (!row || !visibleApplication(user, row, instMap)) {
+      res.status(404).json({ detail: 'Application not found' });
+      return;
+    }
+
+    const [observations, allUsers] = await Promise.all([
+      db.orm.public.ScrutinyObservation.all(),
+      db.orm.public.User.all(),
+    ]);
+
+    const userMap = new Map(allUsers.map((u: any) => [u.id, u]));
+
+    const result = observations
+      .filter((o: any) => o.applicationId === applicationId)
+      .sort((a: any, b: any) => b.createdAt.localeCompare(a.createdAt))
+      .map((o: any) => ({
+        id: o.id,
+        application_id: o.applicationId,
+        category: o.category,
+        finding: o.finding,
+        status: o.status,
+        officer_id: o.officerId,
+        officer_name: userMap.get(o.officerId)?.name || 'Scrutiny Officer',
+        created_at: o.createdAt,
+      }));
+
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ detail: err.message });
+  }
+});
+
+app.post('/api/applications/:applicationId/scrutiny', currentUserMiddleware, requireRoles('scrutiny_officer', 'regional_officer', 'central_officer', 'super_admin'), async (req, res) => {
+  try {
+    const user = (req as any).user;
+    const applicationId = String(req.params.applicationId);
+    const { category, finding, status } = req.body;
+
+    if (!category || !finding || !status) {
+      res.status(422).json({ detail: 'Category, finding observation, and status are required' });
+      return;
+    }
+
+    const row = await db.orm.public.Application.where({ id: applicationId }).first();
+    if (!row) {
+      res.status(404).json({ detail: 'Application not found' });
+      return;
+    }
+
+    const ident = crypto.randomUUID();
+    const nowStr = iso();
+
+    await db.orm.public.ScrutinyObservation.create({
+      id: ident,
+      applicationId,
+      category,
+      finding,
+      status, // 'Satisfactory' | 'Deficient'
+      officerId: user.id,
+      createdAt: nowStr,
+    });
+
+    await audit(user.id, 'Scrutiny observation recorded', 'application', applicationId, finding, null, { category, status });
+
+    res.status(201).json({ id: ident, status: 'Observation recorded' });
+  } catch (err: any) {
+    res.status(500).json({ detail: err.message });
+  }
+});
+
+// Competent Authority Statutory Decision
+app.post('/api/applications/:applicationId/decision', currentUserMiddleware, requireRoles('competent_authority', 'central_officer', 'super_admin'), async (req, res) => {
+  try {
+    const user = (req as any).user;
+    const applicationId = String(req.params.applicationId);
+    const { decision, reason, undertakings = [] } = req.body;
+
+    if (!decision || !reason) {
+      res.status(422).json({ detail: 'Decision and formal reasoning are mandatory' });
+      return;
+    }
+
+    const row = await db.orm.public.Application.where({ id: applicationId }).first();
+    if (!row) {
+      res.status(404).json({ detail: 'Application not found' });
+      return;
+    }
+
+    const nowStr = iso();
+    let nextStatus = 'Approved';
+    if (decision === 'approve_with_undertaking') {
+      nextStatus = 'Approved (Conditional)';
+    } else if (decision === 'reject') {
+      nextStatus = 'Rejected';
+    } else if (decision === 'approve') {
+      nextStatus = 'Approved';
+    } else {
+      res.status(422).json({ detail: 'Unsupported decision type' });
+      return;
+    }
+
+    const oldState = { stage: row.stage, status: row.status };
+
+    await db.orm.public.Application.where({ id: applicationId }).update({
+      stage: 'Completed',
+      status: nextStatus,
+      decisionNotes: reason,
+      decisionAt: nowStr,
+      updatedAt: nowStr,
+    });
+
+    // If conditional undertakings were specified, create them
+    if (decision === 'approve_with_undertaking' && Array.isArray(undertakings)) {
+      const today = nowUtc();
+      const addDays = (d: Date, days: number) => new Date(d.getTime() + days * 86400000);
+      for (const item of undertakings) {
+        if (item.title) {
+          const dueDays = Number(item.due_in_days) || 30;
+          await db.orm.public.ComplianceObligation.create({
+            id: crypto.randomUUID(),
+            institutionId: row.institutionId,
+            applicationId: row.id,
+            title: item.title,
+            dueAt: iso(addDays(today, dueDays)),
+            status: 'Awaiting submission',
+            assignedTo: user.id,
+            submittedAt: null,
+            evidenceName: null,
+            updatedAt: nowStr,
+            notes: `Mandated condition of approval order: ${reason}`,
+          });
+        }
+      }
+    }
+
+    await db.orm.public.StageEvent.create({
+      id: crypto.randomUUID(),
+      applicationId,
+      fromStage: row.stage,
+      toStage: 'Completed',
+      action: `Statutory Decision: ${nextStatus}`,
+      reason,
+      actorId: user.id,
+      createdAt: nowStr,
+    });
+
+    await audit(user.id, `Statutory decision: ${nextStatus}`, 'application', applicationId, reason, oldState, { stage: 'Completed', status: nextStatus, decisionNotes: reason });
+
+    const updated = await db.orm.public.Application.where({ id: applicationId }).first();
+    const [allInsts, allUsers] = await Promise.all([
+      db.orm.public.Institution.all(),
+      db.orm.public.User.all(),
+    ]);
+    const instMap = new Map(allInsts.map((i: any) => [i.id, i]));
+    const userMap = new Map(allUsers.map((u: any) => [u.id, u]));
+
+    res.json(serializeApplication(updated, instMap, userMap));
+  } catch (err: any) {
+    res.status(500).json({ detail: err.message });
+  }
+});
+
 
 // Workflows
 app.get('/api/workflows/templates', currentUserMiddleware, async (_req, res) => {
@@ -1243,6 +1462,78 @@ app.post('/api/documents/:documentId/decision', currentUserMiddleware, requireRo
   }
 });
 
+// Document Renewal
+app.post('/api/documents/:documentId/renew', currentUserMiddleware, upload.single('file'), async (req, res) => {
+  try {
+    const user = (req as any).user;
+    const documentId = String(req.params.documentId);
+    const { expires_at } = req.body;
+    const file = req.file;
+
+    if (!file) {
+      res.status(400).json({ detail: 'No renewed document file uploaded' });
+      return;
+    }
+
+    const doc = await db.orm.public.InstitutionalDocument.where({ id: documentId }).first();
+    if (!doc) {
+      res.status(404).json({ detail: 'Document not found' });
+      return;
+    }
+    if (user.role === 'institution' && doc.institutionId !== user.institutionId) {
+      res.status(403).json({ detail: 'You do not own this document' });
+      return;
+    }
+
+    const ext = path.extname(file.originalname).toLowerCase();
+    const allowedExts = ['.pdf', '.png', '.jpg', '.jpeg'];
+    if (!allowedExts.includes(ext)) {
+      res.status(415).json({ detail: 'Only PDF, PNG, and JPEG files are accepted' });
+      return;
+    }
+
+    const buf = file.buffer;
+    let validSignature = false;
+    if (ext === '.pdf' && buf.subarray(0, 5).toString('ascii') === '%PDF-') {
+      validSignature = true;
+    } else if (ext === '.png' && buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
+      validSignature = true;
+    } else if ((ext === '.jpg' || ext === '.jpeg') && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) {
+      validSignature = true;
+    }
+
+    if (!validSignature) {
+      res.status(415).json({ detail: 'File contents do not match the expected format' });
+      return;
+    }
+
+    const ident = crypto.randomUUID();
+    const storageKey = `${ident}${ext}`;
+    fs.writeFileSync(path.join(UPLOAD_DIR, storageKey), buf);
+
+    const nowStr = iso();
+    const currentVersion = (doc.versionNumber || 1) + 1;
+
+    await db.orm.public.InstitutionalDocument.where({ id: documentId }).update({
+      fileName: path.basename(file.originalname),
+      expiresAt: expires_at ? new Date(expires_at).toISOString() : null,
+      status: 'Renewal submitted',
+      storageKey,
+      uploadedAt: nowStr,
+      verifiedBy: null,
+      verifiedAt: null,
+      versionNumber: currentVersion,
+    });
+
+    await audit(user.id, 'Document renewed', 'document', documentId, `Renewed version ${currentVersion} uploaded for verification`, { version: doc.versionNumber }, { version: currentVersion, fileName: file.originalname });
+
+    const updated = await db.orm.public.InstitutionalDocument.where({ id: documentId }).first();
+    res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ detail: err.message });
+  }
+});
+
 // EVC Workspace
 app.get('/api/evc', currentUserMiddleware, requireRoles('super_admin', 'central_officer', 'regional_officer', 'evc_member'), async (req, res) => {
   try {
@@ -1268,6 +1559,9 @@ app.get('/api/evc', currentUserMiddleware, requireRoles('super_admin', 'central_
         status: e.status,
         created_by: e.createdBy,
         reason: e.reason,
+        report_notes: e.reportNotes || null,
+        recommendation: e.recommendation || null,
+        reported_at: e.reportedAt || null,
         reference: app?.reference || 'Unknown',
         institution_name: inst?.name || 'Unknown',
         region: inst?.region || null,
@@ -1335,6 +1629,10 @@ app.post('/api/evc', currentUserMiddleware, requireRoles('super_admin', 'central
       status: 'Scheduled',
       createdBy: user.id,
       reason,
+      reportNotes: null,
+      recommendation: null,
+      reportedAt: null,
+      reportedBy: null,
     });
 
     await db.orm.public.Application.where({ id: application_id }).update({
@@ -1357,6 +1655,76 @@ app.post('/api/evc', currentUserMiddleware, requireRoles('super_admin', 'central
 
     const newEvc = await db.orm.public.EvcEvent.where({ id: ident }).first();
     res.status(201).json(newEvc);
+  } catch (err: any) {
+    res.status(500).json({ detail: err.message });
+  }
+});
+
+// Submit EVC Inspection Report
+app.post('/api/evc/:evcId/report', currentUserMiddleware, requireRoles('evc_member', 'central_officer', 'regional_officer', 'super_admin'), async (req, res) => {
+  try {
+    const user = (req as any).user;
+    const evcId = String(req.params.evcId);
+    const { report_notes, recommendation } = req.body;
+
+    if (!report_notes || !recommendation) {
+      res.status(422).json({ detail: 'Inspection observations and committee recommendation are required' });
+      return;
+    }
+
+    const row = await db.orm.public.EvcEvent.where({ id: evcId }).first();
+    if (!row) {
+      res.status(404).json({ detail: 'EVC event not found' });
+      return;
+    }
+
+    const nowStr = iso();
+
+    await db.orm.public.EvcEvent.where({ id: evcId }).update({
+      status: 'Report submitted',
+      reportNotes: report_notes,
+      recommendation,
+      reportedAt: nowStr,
+      reportedBy: user.id,
+    });
+
+    // Advance application from EVC stage to next stage
+    const app = await db.orm.public.Application.where({ id: row.applicationId }).first();
+    if (app && app.stage === 'EVC') {
+      const version = await db.orm.public.WorkflowVersion.where({ id: app.workflowVersionId }).first();
+      let nextStage = app.stage;
+      let nextStatus = 'Report submitted';
+      if (version) {
+        const stages: string[] = JSON.parse(version.stagesJson);
+        const idx = stages.indexOf('EVC');
+        if (idx !== -1 && idx < stages.length - 1) {
+          nextStage = stages[idx + 1];
+          nextStatus = 'Pending';
+        }
+      }
+
+      await db.orm.public.Application.where({ id: row.applicationId }).update({
+        stage: nextStage,
+        status: nextStatus,
+        updatedAt: nowStr,
+      });
+
+      await db.orm.public.StageEvent.create({
+        id: crypto.randomUUID(),
+        applicationId: row.applicationId,
+        fromStage: 'EVC',
+        toStage: nextStage,
+        action: 'EVC report submitted',
+        reason: `Committee recommendation: ${recommendation}. Observations: ${report_notes}`,
+        actorId: user.id,
+        createdAt: nowStr,
+      });
+    }
+
+    await audit(user.id, 'EVC inspection report submitted', 'evc_event', evcId, `Recommendation: ${recommendation}`, null, { recommendation, reportNotes: report_notes });
+
+    const updated = await db.orm.public.EvcEvent.where({ id: evcId }).first();
+    res.json(updated);
   } catch (err: any) {
     res.status(500).json({ detail: err.message });
   }
@@ -1386,6 +1754,38 @@ app.get('/api/notifications', currentUserMiddleware, async (req, res) => {
     res.status(500).json({ detail: err.message });
   }
 });
+
+app.post('/api/notifications/:id/read', currentUserMiddleware, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    const noticeId = String(req.params.id);
+    const notice = await db.orm.public.Notification.where({ id: noticeId }).first();
+    if (!notice || notice.userId !== user.id) {
+      res.status(404).json({ detail: 'Notification not found' });
+      return;
+    }
+    await db.orm.public.Notification.where({ id: noticeId }).update({ readAt: iso() });
+    res.json({ status: 'marked read' });
+  } catch (err: any) {
+    res.status(500).json({ detail: err.message });
+  }
+});
+
+app.post('/api/notifications/read-all', currentUserMiddleware, async (req, res) => {
+  try {
+    const user = (req as any).user;
+    const all = await db.orm.public.Notification.all();
+    const userNotices = all.filter((n: any) => n.userId === user.id && !n.readAt);
+    const nowStr = iso();
+    for (const n of userNotices) {
+      await db.orm.public.Notification.where({ id: n.id }).update({ readAt: nowStr });
+    }
+    res.json({ status: 'all read', count: userNotices.length });
+  } catch (err: any) {
+    res.status(500).json({ detail: err.message });
+  }
+});
+
 
 // Audit trail
 app.get('/api/audit', currentUserMiddleware, requireRoles('super_admin', 'central_officer', 'regional_officer'), async (req, res) => {

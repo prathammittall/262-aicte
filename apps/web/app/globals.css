@@ -370,3 +370,35 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .login-form-wrap { margin: 0 auto; }
   .login-form-wrap h2 { font-size: 24px; }
 }
+
+/* Persona Switcher Bar */
+.persona-switcher-bar { background: #132746; border-bottom: 1px solid #233e66; padding: 7px 24px; display: flex; align-items: center; gap: 10px; overflow-x: auto; color: #a5bddc; font-size: 10px; }
+.persona-switcher-bar strong { color: #f1f6ff; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+.persona-pill { border: 1px solid #284775; background: #183358; color: #cbd9ed; border-radius: 14px; padding: 4px 10px; font-size: 10px; font-weight: 500; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; transition: background .15s, border-color .15s; }
+.persona-pill:hover { background: #264a7c; border-color: #4b74ad; color: #fff; }
+.persona-pill.active { background: #315ce8; border-color: #557cf7; color: #fff; font-weight: 700; box-shadow: 0 0 10px #315ce860; }
+.persona-pill i { width: 6px; height: 6px; border-radius: 50%; background: #6ddbad; }
+.persona-pill.active i { background: #fff; }
+
+/* Scrutiny Observation Items */
+.observation-list { display: grid; gap: 8px; margin-top: 10px; }
+.observation-item { border: 1px solid #eef2f7; border-radius: 5px; padding: 9px 12px; background: #fafbfc; display: flex; flex-direction: column; gap: 4px; }
+.observation-head { display: flex; justify-content: space-between; align-items: center; }
+.observation-head b { font-size: 10px; color: #2c3c52; }
+.observation-head small { color: #8895a6; font-size: 9px; }
+.observation-body { color: #516279; font-size: 10px; line-height: 1.5; margin: 0; }
+
+/* Version Badge */
+.version-tag { display: inline-block; padding: 2px 5px; border-radius: 3px; background: #eff3f8; color: #435b79; font-size: 8px; font-weight: 700; border: 1px solid #dce4ee; }
+
+/* Decision Radio Boxes */
+.decision-options { display: grid; gap: 8px; }
+.decision-option { display: flex; align-items: flex-start; gap: 9px; padding: 10px 12px; border: 1px solid #e2e8f1; border-radius: 5px; cursor: pointer; transition: border-color .15s, background .15s; }
+.decision-option:hover { background: #f8faff; border-color: #8da6f5; }
+.decision-option.selected { border-color: #315ce8; background: #f2f5ff; }
+.decision-option input { margin-top: 2px; }
+.decision-option b { display: block; color: #22344d; font-size: 11px; margin-bottom: 2px; }
+.decision-option span { color: #6d7d93; font-size: 9px; line-height: 1.4; }
+
+/* Undertaking Input Row */
+.undertaking-row { display: grid; grid-template-columns: 1fr 100px; gap: 8px; margin-top: 6px; }

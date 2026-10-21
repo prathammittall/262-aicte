@@ -35,6 +35,8 @@ model Application {
   updatedAt         String
   workflowVersionId String?
   returnToStage     String?
+  decisionNotes     String?
+  decisionAt        String?
 }
 
 model StageEvent {
@@ -45,6 +47,16 @@ model StageEvent {
   action        String
   reason        String
   actorId       String
+  createdAt     String
+}
+
+model ScrutinyObservation {
+  id            String  @id
+  applicationId String
+  category      String
+  finding       String
+  status        String
+  officerId     String
   createdAt     String
 }
 
@@ -59,6 +71,7 @@ model ComplianceObligation {
   submittedAt   String?
   evidenceName  String?
   updatedAt     String
+  notes         String?
 }
 
 model InstitutionalDocument {
@@ -72,17 +85,22 @@ model InstitutionalDocument {
   uploadedAt    String
   verifiedBy    String?
   verifiedAt    String?
+  versionNumber Int     @default(1)
 }
 
 model EvcEvent {
-  id            String @id
-  applicationId String
-  scheduledAt   String
-  location      String
-  committee     String
-  status        String
-  createdBy     String
-  reason        String
+  id             String  @id
+  applicationId  String
+  scheduledAt    String
+  location       String
+  committee      String
+  status         String
+  createdBy      String
+  reason         String
+  reportNotes    String?
+  recommendation String?
+  reportedAt     String?
+  reportedBy     String?
 }
 
 model Notification {
@@ -127,12 +145,14 @@ model WorkflowVersion {
 }
 
 model EscalationEvent {
-  id         String  @id
-  entityType String
-  entityId   String
-  reason     String
-  status     String
-  createdAt  String
-  resolvedAt String?
-  resolvedBy String?
+  id              String  @id
+  entityType      String
+  entityId        String
+  reason          String
+  status          String
+  createdAt       String
+  resolvedAt      String?
+  resolvedBy      String?
+  resolutionNotes String?
 }
+
