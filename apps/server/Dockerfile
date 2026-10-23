@@ -4,10 +4,14 @@ WORKDIR /app
 
 # In a monorepo, package-lock.json is at root, so make it optional in context
 COPY package.json package-lock.json* ./
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+RUN if [ -f package-lock.json ]; then \
+      npm ci; \
+    else \
+      npm install --legacy-peer-deps; \
+    fi
 
 COPY . .
-RUN npm run build && npm prune --omit=dev
+RUN npm run build && npm prune --omit=dev --legacy-peer-deps
 
 FROM node:20-alpine AS production
 
