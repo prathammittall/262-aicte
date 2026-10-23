@@ -12,8 +12,9 @@ const CONFIGURED_API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 function apiBaseUrl() {
   if (CONFIGURED_API_URL) return CONFIGURED_API_URL;
-  return typeof window === "undefined" ? "http://localhost:3000" : `http://${window.location.hostname}:3000`;
+  return "";
 }
+
 
 type User = {
   id: string;
