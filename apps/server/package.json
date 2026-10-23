@@ -10,7 +10,7 @@
     "contract:emit": "prisma contract emit"
   },
   "dependencies": {
-    "@prisma/orm-postgres": "^8.0.0-rc.18",
+    "@prisma/orm-postgres": "8.0.0-rc.18",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
