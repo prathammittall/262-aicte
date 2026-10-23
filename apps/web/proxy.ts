@@ -2,10 +2,15 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 // Target deployed backend URL
-const BACKEND_URL =
+const rawBackendUrl =
   process.env.BACKEND_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
   "https://aicte.duckdns.org";
+
+const BACKEND_URL =
+  rawBackendUrl.startsWith("http://") && rawBackendUrl.includes("aicte.duckdns.org")
+    ? rawBackendUrl.replace(/^http:\/\//, "https://")
+    : rawBackendUrl;
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;

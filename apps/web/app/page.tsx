@@ -11,8 +11,11 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 const CONFIGURED_API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 function apiBaseUrl() {
-  if (CONFIGURED_API_URL) return CONFIGURED_API_URL;
-  return "";
+  if (!CONFIGURED_API_URL) return "";
+  if (typeof window !== "undefined" && window.location.protocol === "https:" && CONFIGURED_API_URL.startsWith("http://")) {
+    return CONFIGURED_API_URL.replace(/^http:\/\//, "https://");
+  }
+  return CONFIGURED_API_URL;
 }
 
 

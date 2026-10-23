@@ -1,7 +1,12 @@
-const BACKEND_URL =
+const rawBackendUrl =
   process.env.BACKEND_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
   "https://aicte.duckdns.org";
+
+const BACKEND_URL =
+  rawBackendUrl.startsWith("http://") && rawBackendUrl.includes("aicte.duckdns.org")
+    ? rawBackendUrl.replace(/^http:\/\//, "https://")
+    : rawBackendUrl;
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
