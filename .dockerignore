@@ -1,0 +1,51 @@
+# Dependency directories
+node_modules
+*/node_modules
+*/*/node_modules
+
+# Build and cache outputs
+dist
+*/dist
+*/*/dist
+.next
+*/.next
+*/*/.next
+.turbo
+*/.turbo
+*/*/.turbo
+
+# Environment and secrets
+.env
+.env*.local
+.env.production
+.env.development
+*.env
+apps/*/.env*
+!apps/*/.env.example
+
+# Git and IDE
+.git
+.github
+.gitignore
+.vscode
+.idea
+
+# Log files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Documentation
+*.md
+!README.md
+
+# Storage and uploads
+private_uploads
+*/private_uploads
+*/*/private_uploads
+
+# Docker files
+docker-compose*.yml
+docker-compose*.yaml
