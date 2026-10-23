@@ -1,45 +1,40 @@
-# Stage 1: Prune monorepo for server only
-FROM node:20-alpine AS pruner
-RUN apk add --no-cache libc6-compat
-WORKDIR /app
-RUN npm install -g turbo@^2
-COPY . .
-RUN turbo prune server --docker
+# Stage 1: Build server
+FROM node:22-alpine AS builder
 
-# Stage 2: Install dependencies & build
-FROM node:20-alpine AS builder
-RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# First install dependencies using the pruned lockfile and manifests (cached layer)
-COPY --from=pruner /app/out/json/ .
-RUN npm ci
+# Copy server package manifest
+COPY apps/server/package.json ./
 
-# Copy full source of pruned workspace and build
-COPY --from=pruner /app/out/full/ .
-RUN npx turbo run build --filter=server
+# Install server dependencies
+RUN npm install --legacy-peer-deps
 
-# Prune devDependencies to keep the production image lean
+# Copy server source code and configurations
+COPY apps/server/ ./
+
+# Build the TypeScript project
+RUN npm run build
+
+# Remove development dependencies for lean production image
 RUN npm prune --omit=dev --legacy-peer-deps
 
-# Stage 3: Production runner
-FROM node:20-alpine AS runner
-RUN apk add --no-cache libc6-compat
+# Stage 2: Production runner
+FROM node:22-alpine AS runner
+
 WORKDIR /app
 
+# Run as non-root user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Copy production node_modules from builder
+# Copy compiled files and production node_modules from builder
+COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
 COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
+COPY --from=builder --chown=appuser:appgroup /app/package.json ./
 
-# Copy built server output and package manifest
-COPY --from=builder --chown=appuser:appgroup /app/apps/server/dist ./dist
-COPY --from=builder --chown=appuser:appgroup /app/apps/server/package.json ./package.json
-
-# Ensure storage directory exists and is owned by appuser
+# Ensure storage directories exist and are owned by appuser
 RUN mkdir -p /app/private_uploads && chown -R appuser:appgroup /app
 
 USER appuser
